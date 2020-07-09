@@ -10,6 +10,8 @@ pub mod dependencies {
     pub use ::url2;
 }
 
+pub mod peer_discover;
+
 /// A collection of definitions related to remote communication.
 pub mod transport {
     /// Error related to remote communication.

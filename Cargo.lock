@@ -1555,8 +1555,12 @@ dependencies = [
 name = "kitsune_p2p_types"
 version = "0.0.1"
 dependencies = [
+ "base64 0.12.3",
+ "byteorder",
+ "chrono",
  "futures",
  "ghost_actor",
+ "ring",
  "thiserror",
  "tokio",
  "url2",
