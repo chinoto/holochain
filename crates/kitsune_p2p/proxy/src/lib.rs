@@ -7,6 +7,7 @@ use kitsune_p2p_types::{
     dependencies::{ghost_actor, url2},
     transport::{transport_connection::*, transport_listener::*, *},
 };
+use lair_keystore_api::actor::*;
 use std::sync::Arc;
 
 pub mod wire;
@@ -19,16 +20,38 @@ pub type AcceptProxyCallback = Arc<
         + Sync,
 >;
 
-/// Configuration for proxy binding
+/// Tls Configuration for proxy.
+#[derive(Clone)]
+pub struct TlsConfig {
+    /// Cert
+    pub cert: Cert,
+
+    /// Cert SNI
+    pub sni: CertSni,
+
+    /// Cert Priv Key
+    pub cert_priv_key: CertPrivKey,
+
+    /// Cert Digest
+    pub cert_digest: CertDigest,
+}
+
+/// Configuration for proxy binding.
 pub enum ProxyConfig {
     /// We want to be hosted at a remote proxy location.
     RemoteProxyClient {
-        /// The remote proxy url to be hosted at
+        /// The Tls config for this proxy endpoint.
+        tls: TlsConfig,
+
+        /// The remote proxy url to be hosted at.
         proxy_url: url2::Url2,
     },
 
     /// We want to be a proxy server for others.
     LocalProxyServer {
+        /// The Tls config for this proxy endpoint.
+        tls: TlsConfig,
+
         /// Return true if we should take on proxying for the
         /// requesting client.
         accept_proxy_cb: AcceptProxyCallback,
@@ -44,14 +67,20 @@ pub async fn proxy_wrap_transport_listener(
     ghost_actor::GhostSender<TransportListener>,
     TransportListenerEventReceiver,
 )> {
-    if let ProxyConfig::RemoteProxyClient { proxy_url } = &proxy_config {
+    if let ProxyConfig::RemoteProxyClient { proxy_url, .. } = &proxy_config {
         // TODO - request proxying at proxy_url:
         println!("TODO - request proxying at: {}", proxy_url);
     }
 
-    let accept_proxy_cb = match proxy_config {
-        ProxyConfig::RemoteProxyClient { .. } => Arc::new(|_| async move { false }.boxed().into()),
-        ProxyConfig::LocalProxyServer { accept_proxy_cb } => accept_proxy_cb,
+    let (tls, accept_proxy_cb): (TlsConfig, AcceptProxyCallback) = match proxy_config {
+        ProxyConfig::RemoteProxyClient { tls, .. } => {
+            (tls, Arc::new(|_| async move { false }.boxed().into()))
+        }
+        ProxyConfig::LocalProxyServer {
+            tls,
+            accept_proxy_cb,
+            ..
+        } => (tls, accept_proxy_cb),
     };
 
     let builder = ghost_actor::actor_builder::GhostActorBuilder::new();
@@ -65,90 +94,13 @@ pub async fn proxy_wrap_transport_listener(
 
     let (evt_send, evt_recv) = futures::channel::mpsc::channel(10);
 
-    tokio::task::spawn(builder.spawn(InnerListen::new(accept_proxy_cb, sender, evt_send)));
+    tokio::task::spawn(builder.spawn(InnerListen::new(tls, accept_proxy_cb, sender, evt_send)?));
 
     Ok((new_sender, evt_recv))
 }
 
-struct InnerListen {
-    accept_proxy_cb: AcceptProxyCallback,
-    sender: ghost_actor::GhostSender<TransportListener>,
-    evt_send: futures::channel::mpsc::Sender<TransportListenerEvent>,
-}
+mod inner_con;
+pub(crate) use inner_con::*;
 
-impl InnerListen {
-    pub fn new(
-        accept_proxy_cb: AcceptProxyCallback,
-        sender: ghost_actor::GhostSender<TransportListener>,
-        evt_send: futures::channel::mpsc::Sender<TransportListenerEvent>,
-    ) -> Self {
-        Self {
-            accept_proxy_cb,
-            sender,
-            evt_send,
-        }
-    }
-}
-
-impl ghost_actor::GhostControlHandler for InnerListen {}
-
-impl ghost_actor::GhostHandler<TransportListener> for InnerListen {}
-
-impl TransportListenerHandler for InnerListen {
-    fn handle_bound_url(&mut self) -> TransportListenerHandlerResult<url2::Url2> {
-        // TODO translate url
-        let fut = self.sender.bound_url();
-        Ok(async move { fut.await }.boxed().into())
-    }
-
-    fn handle_connect(
-        &mut self,
-        url: url2::Url2,
-    ) -> TransportListenerHandlerResult<(
-        ghost_actor::GhostSender<TransportConnection>,
-        TransportConnectionEventReceiver,
-    )> {
-        let accept_proxy_cb = self.accept_proxy_cb.clone();
-        // TODO translate url
-        let fut = self.sender.connect(url);
-        Ok(async move {
-            let (sender, receiver) = fut.await?;
-            let (sender, receiver) = proxy_wrap_transport_connection(sender, receiver).await?;
-            if !accept_proxy_cb(vec![0; 32].into()).await {
-                return Err("Refusing to proxy".into());
-            }
-            Ok((sender, receiver))
-        }
-        .boxed()
-        .into())
-    }
-}
-
-impl ghost_actor::GhostHandler<TransportListenerEvent> for InnerListen {}
-
-impl TransportListenerEventHandler for InnerListen {
-    fn handle_incoming_connection(
-        &mut self,
-        sender: ghost_actor::GhostSender<TransportConnection>,
-        receiver: TransportConnectionEventReceiver,
-    ) -> TransportListenerEventHandlerResult<()> {
-        let evt_send = self.evt_send.clone();
-        Ok(async move {
-            let (sender, receiver) = proxy_wrap_transport_connection(sender, receiver).await?;
-            evt_send.incoming_connection(sender, receiver).await?;
-            Ok(())
-        }
-        .boxed()
-        .into())
-    }
-}
-
-async fn proxy_wrap_transport_connection(
-    _sender: ghost_actor::GhostSender<TransportConnection>,
-    _receiver: TransportConnectionEventReceiver,
-) -> TransportResult<(
-    ghost_actor::GhostSender<TransportConnection>,
-    TransportConnectionEventReceiver,
-)> {
-    unimplemented!()
-}
+mod inner_listen;
+pub(crate) use inner_listen::*;

@@ -1,29 +1,45 @@
 //! KitsuneP2p Proxy Wire Protocol Items.
 
 use crate::*;
-use lair_keystore_api::actor::*;
 
 /// Proxy Wire Protocol Top-Level Enum.
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ProxyWire {
+    /// Generic proxy request failure.
+    Failure(Failure),
+
     /// We want to be proxied by the remote end.
     RequestProxyService(RequestProxyService),
 
     /// The accept response to our request for proxy service.
     RequestProxyServiceAccepted(RequestProxyServiceAccepted),
 
-    /// The accept response to our request for proxy service.
-    RequestProxyServiceRejected(RequestProxyServiceRejected),
+    /// Create a proxy channel.
+    CreateChannel(CreateChannel),
+
+    /// Channel create success.
+    CreateChannelSuccess(CreateChannelSuccess),
 
     /// Forward a message through the proxy.
     ProxyRequest(ProxyRequest),
 
     /// Receive a success response to a proxy request.
     ProxyResponseSuccess(ProxyResponseSuccess),
+}
 
-    /// Receive a failure response to a proxy request.
-    ProxyResponseFailure(ProxyResponseFailure),
+/// The accept response to our request for proxy service.
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct Failure(
+    /// The reason why the proxy request failed.
+    pub String,
+);
+
+impl Failure {
+    /// Get the rejection reason referenced by this message.
+    pub fn reason(&self) -> &str {
+        &self.0
+    }
 }
 
 /// We want to be proxied by the remote end.
@@ -55,35 +71,42 @@ impl RequestProxyServiceAccepted {
     }
 }
 
-/// The accept response to our request for proxy service.
+/// Create a proxy channel.
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
-pub struct RequestProxyServiceRejected(
-    /// The reason why the proxy request was rejected.
-    pub String,
+pub struct CreateChannel(
+    /// The cert_digest identified destination for this channel.
+    #[serde(with = "serde_bytes")]
+    pub Vec<u8>,
 );
 
-impl RequestProxyServiceRejected {
-    /// Get the rejection reason referenced by this message.
-    pub fn reason(&self) -> &str {
-        &self.0
+/// Channel Create success.
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct CreateChannelSuccess(
+    /// channel id
+    pub u32,
+);
+
+impl CreateChannelSuccess {
+    /// channel id
+    pub fn channel_id(&self) -> u32 {
+        self.0
     }
 }
 
 /// Forward a message through the proxy.
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct ProxyRequest(
-    /// The cert_digest identified destination for this message.
-    #[serde(with = "serde_bytes")]
-    pub Vec<u8>,
+    /// channel id
+    pub u32,
     /// The content of this request.
     #[serde(with = "serde_bytes")]
     pub Vec<u8>,
 );
 
 impl ProxyRequest {
-    /// Get the digest / content of this request.
-    pub fn into_inner(self) -> (CertDigest, Vec<u8>) {
-        (self.0.into(), self.1)
+    /// Get the channel id / content of this request.
+    pub fn into_inner(self) -> (u32, Vec<u8>) {
+        (self.0, self.1)
     }
 }
 
@@ -102,28 +125,20 @@ impl ProxyResponseSuccess {
     }
 }
 
-/// Receive a failure response to a proxy request.
-#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
-pub struct ProxyResponseFailure(
-    /// The reason why the proxy request failed.
-    pub String,
-);
-
-impl ProxyResponseFailure {
-    /// Get the rejection reason referenced by this message.
-    pub fn reason(&self) -> &str {
-        &self.0
-    }
-}
-
+const FAILURE: u8 = 0x02;
 const REQUEST_PROXY_SERVICE: u8 = 0x10;
 const REQUEST_PROXY_SERVICE_ACCEPTED: u8 = 0x11;
-const REQUEST_PROXY_SERVICE_REJECTED: u8 = 0x12;
-const PROXY_REQUEST: u8 = 0x20;
-const PROXY_RESPONSE_SUCCESS: u8 = 0x21;
-const PROXY_RESPONSE_FAILURE: u8 = 0x22;
+const CREATE_CHANNEL: u8 = 0x20;
+const CREATE_CHANNEL_SUCCESS: u8 = 0x21;
+const PROXY_REQUEST: u8 = 0x30;
+const PROXY_RESPONSE_SUCCESS: u8 = 0x31;
 
 impl ProxyWire {
+    /// Generic proxy request failure.
+    pub fn failure(reason: String) -> Self {
+        Self::Failure(Failure(reason))
+    }
+
     /// We want to be proxied by the remote end.
     pub fn request_proxy_service(cert_digest: CertDigest) -> Self {
         Self::RequestProxyService(RequestProxyService(cert_digest.0.to_vec()))
@@ -134,24 +149,24 @@ impl ProxyWire {
         Self::RequestProxyServiceAccepted(RequestProxyServiceAccepted(format!("{}", proxy_address)))
     }
 
-    /// The accept response to our request for proxy service.
-    pub fn request_proxy_service_rejected(reason: String) -> Self {
-        Self::RequestProxyServiceRejected(RequestProxyServiceRejected(reason))
+    /// Create a proxy channel.
+    pub fn create_channel(cert_digest: CertDigest) -> Self {
+        Self::CreateChannel(CreateChannel(cert_digest.0.to_vec()))
+    }
+
+    /// Channel create success.
+    pub fn create_channel_success(channel_id: u32) -> Self {
+        Self::CreateChannelSuccess(CreateChannelSuccess(channel_id))
     }
 
     /// Forward a message through the proxy.
-    pub fn proxy_request(cert_digest: CertDigest, content: Vec<u8>) -> Self {
-        Self::ProxyRequest(ProxyRequest(cert_digest.0.to_vec(), content))
+    pub fn proxy_request(channel_id: u32, content: Vec<u8>) -> Self {
+        Self::ProxyRequest(ProxyRequest(channel_id, content))
     }
 
     /// Receive a success response to a proxy request.
     pub fn proxy_response_success(content: Vec<u8>) -> Self {
         Self::ProxyResponseSuccess(ProxyResponseSuccess(content))
-    }
-
-    /// Receive a failure response to a proxy request.
-    pub fn proxy_response_failure(reason: String) -> Self {
-        Self::ProxyResponseFailure(ProxyResponseFailure(reason))
     }
 
     /// Encode this wire message.
@@ -161,16 +176,15 @@ impl ProxyWire {
             .with_struct_map()
             .with_string_variants();
         let (s, u) = match self {
+            Self::Failure(s) => (s.serialize(&mut se), FAILURE),
             Self::RequestProxyService(s) => (s.serialize(&mut se), REQUEST_PROXY_SERVICE),
             Self::RequestProxyServiceAccepted(s) => {
                 (s.serialize(&mut se), REQUEST_PROXY_SERVICE_ACCEPTED)
             }
-            Self::RequestProxyServiceRejected(s) => {
-                (s.serialize(&mut se), REQUEST_PROXY_SERVICE_REJECTED)
-            }
+            Self::CreateChannel(s) => (s.serialize(&mut se), CREATE_CHANNEL),
+            Self::CreateChannelSuccess(s) => (s.serialize(&mut se), CREATE_CHANNEL_SUCCESS),
             Self::ProxyRequest(s) => (s.serialize(&mut se), PROXY_REQUEST),
             Self::ProxyResponseSuccess(s) => (s.serialize(&mut se), PROXY_RESPONSE_SUCCESS),
-            Self::ProxyResponseFailure(s) => (s.serialize(&mut se), PROXY_RESPONSE_FAILURE),
         };
         s.map_err(TransportError::other)?;
         let mut out = se.into_inner();
@@ -181,22 +195,25 @@ impl ProxyWire {
     /// Decode a wire message.
     pub fn decode(data: &[u8]) -> TransportResult<Self> {
         Ok(match data[0] {
+            FAILURE => {
+                Self::Failure(rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?)
+            }
             REQUEST_PROXY_SERVICE => Self::RequestProxyService(
                 rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
             ),
             REQUEST_PROXY_SERVICE_ACCEPTED => Self::RequestProxyServiceAccepted(
                 rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
             ),
-            REQUEST_PROXY_SERVICE_REJECTED => Self::RequestProxyServiceRejected(
+            CREATE_CHANNEL => Self::CreateChannel(
+                rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
+            ),
+            CREATE_CHANNEL_SUCCESS => Self::CreateChannelSuccess(
                 rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
             ),
             PROXY_REQUEST => Self::ProxyRequest(
                 rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
             ),
             PROXY_RESPONSE_SUCCESS => Self::ProxyResponseSuccess(
-                rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
-            ),
-            PROXY_RESPONSE_FAILURE => Self::ProxyResponseFailure(
                 rmp_serde::from_read_ref(&data[1..]).map_err(TransportError::other)?,
             ),
             _ => return Err("corrupt wire message".into()),
@@ -220,6 +237,10 @@ mod tests {
         };
     }
 
+    enc_dec_test!(can_encode_decode_failure {
+        ProxyWire::failure("test".to_string())
+    });
+
     enc_dec_test!(can_encode_decode_request_proxy_service {
         ProxyWire::request_proxy_service(vec![0xdb; 32].into())
     });
@@ -228,19 +249,19 @@ mod tests {
         ProxyWire::request_proxy_service_accepted(url2::url2!("test://yo"))
     });
 
-    enc_dec_test!(can_encode_decode_request_proxy_service_rejected {
-        ProxyWire::request_proxy_service_rejected("test".to_string())
+    enc_dec_test!(can_encode_decode_create_channel {
+        ProxyWire::create_channel(vec![0xdb; 32].into())
+    });
+
+    enc_dec_test!(can_encode_decode_create_channel_success {
+        ProxyWire::create_channel_success(42)
     });
 
     enc_dec_test!(can_encode_decode_proxy_request {
-        ProxyWire::proxy_request(vec![0xdb; 32].into(), b"test".to_vec())
+        ProxyWire::proxy_request(42, b"test".to_vec())
     });
 
     enc_dec_test!(can_encode_decode_proxy_response_success {
         ProxyWire::proxy_response_success(b"test".to_vec())
-    });
-
-    enc_dec_test!(can_encode_decode_proxy_response_failure {
-        ProxyWire::proxy_response_failure("test".to_string())
     });
 }
