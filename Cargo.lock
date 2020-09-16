@@ -1712,7 +1712,10 @@ dependencies = [
  "kitsune_p2p_types",
  "lair_keystore_api",
  "nanoid",
+ "rmp-serde",
  "rustls",
+ "serde",
+ "serde_bytes",
  "tokio",
 ]
 

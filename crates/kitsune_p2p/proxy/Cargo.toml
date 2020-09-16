@@ -15,5 +15,8 @@ futures = "0.3"
 kitsune_p2p_types = { version = "0.0.1", path = "../types" }
 lair_keystore_api = "0.0.1-alpha.4"
 nanoid = "0.3"
+rmp-serde = "0.14"
 rustls = { version = "0.17", features = [ "dangerous_configuration" ] }
+serde = { version = "1", features = [ "derive" ] }
+serde_bytes = "0.11"
 tokio = { version = "0.2", features = [ "full" ] }
