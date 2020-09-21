@@ -176,14 +176,32 @@ impl TransportConnectionHandler for InnerCon {
         Ok(async move { Ok(url) }.boxed().into())
     }
 
-    fn handle_request(&mut self, data: Vec<u8>) -> TransportConnectionHandlerResult<Vec<u8>> {
+    fn handle_create_channel(
+        &mut self,
+    ) -> TransportConnectionHandlerResult<(TransportChannelWrite, TransportChannelRead)> {
         let this_url = self.this_url.clone();
         let evt_send = self.evt_send.clone();
-        Ok(
-            async move { evt_send.incoming_request(this_url, data).await }
-                .boxed()
-                .into(),
-        )
+        Ok(async move {
+            use futures::sink::SinkExt;
+            let (send1, recv1) = futures::channel::mpsc::channel(10);
+            let send1 = send1.sink_map_err(TransportError::other);
+            let (send2, recv2) = futures::channel::mpsc::channel(10);
+            let send2 = send2.sink_map_err(TransportError::other);
+            // if we don't spawn here there can be a deadlock on
+            // incoming_channel trying to process all channel data
+            // before we've returned our halves here.
+            tokio::task::spawn(async move {
+                // it's ok if this errors... the channels will close.
+                let _ = evt_send
+                    .incoming_channel(this_url, Box::new(send1), Box::new(recv2))
+                    .await;
+            });
+            let send2: TransportChannelWrite = Box::new(send2);
+            let recv1: TransportChannelRead = Box::new(recv1);
+            Ok((send2, recv1))
+        }
+        .boxed()
+        .into())
     }
 }
 
@@ -196,12 +214,23 @@ mod tests {
         tokio::task::spawn(async move {
             while let Some(msg) = recv.next().await {
                 match msg {
-                    TransportConnectionEvent::IncomingRequest {
-                        respond, url, data, ..
+                    TransportConnectionEvent::IncomingChannel {
+                        respond,
+                        url,
+                        mut send,
+                        recv,
+                        ..
                     } => {
-                        let data = format!("echo({}): {}", url, String::from_utf8_lossy(&data),)
-                            .into_bytes();
-                        respond.respond(Ok(async move { Ok(data) }.boxed().into()));
+                        respond.respond(Ok(async move {
+                            let data = recv.read_to_end().await;
+                            let data =
+                                format!("echo({}): {}", url, String::from_utf8_lossy(&data),)
+                                    .into_bytes();
+                            send.write_and_close(data).await?;
+                            Ok(())
+                        }
+                        .boxed()
+                        .into()));
                     }
                 }
             }
