@@ -1710,6 +1710,7 @@ dependencies = [
 name = "kitsune_p2p_proxy"
 version = "0.0.1"
 dependencies = [
+ "derive_more",
  "futures",
  "kitsune_p2p_types",
  "lair_keystore_api",

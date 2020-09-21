@@ -68,7 +68,9 @@ impl TransportConnectionHandler for InnerCon {
         unimplemented!()
     }
 
-    fn handle_request(&mut self, _data: Vec<u8>) -> TransportConnectionHandlerResult<Vec<u8>> {
+    fn handle_create_channel(
+        &mut self,
+    ) -> TransportConnectionHandlerResult<(TransportChannelWrite, TransportChannelRead)> {
         unimplemented!()
     }
 }
@@ -76,11 +78,12 @@ impl TransportConnectionHandler for InnerCon {
 impl ghost_actor::GhostHandler<TransportConnectionEvent> for InnerCon {}
 
 impl TransportConnectionEventHandler for InnerCon {
-    fn handle_incoming_request(
+    fn handle_incoming_channel(
         &mut self,
         _url: url2::Url2,
-        _data: Vec<u8>,
-    ) -> TransportConnectionEventHandlerResult<Vec<u8>> {
+        _send: TransportChannelWrite,
+        _recv: TransportChannelRead,
+    ) -> TransportConnectionEventHandlerResult<()> {
         unimplemented!()
     }
 }
