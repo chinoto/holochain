@@ -15,6 +15,7 @@ use ::fixt::prelude::*;
 use holo_hash::AgentPubKey;
 use holo_hash::EntryHash;
 use holochain_serialized_bytes::SerializedBytes;
+use holochain_zome_types::capability::CapAccess;
 use holochain_zome_types::capability::CapGrant;
 use holochain_zome_types::capability::CapSecret;
 use holochain_zome_types::capability::CurryPayloads;
@@ -23,12 +24,15 @@ use holochain_zome_types::capability::GrantedFunctions;
 use holochain_zome_types::capability::ZomeCallCapGrant;
 use holochain_zome_types::capability::CAP_SECRET_BYTES;
 use holochain_zome_types::crdt::CrdtType;
+use holochain_zome_types::element::Element;
+use holochain_zome_types::element::SignedHeaderHashed;
 use holochain_zome_types::entry::AppEntryBytes;
 use holochain_zome_types::entry_def::EntryDef;
 use holochain_zome_types::entry_def::EntryDefId;
 use holochain_zome_types::entry_def::EntryDefs;
 use holochain_zome_types::entry_def::EntryVisibility;
 use holochain_zome_types::entry_def::RequiredValidations;
+use holochain_zome_types::fixt::MaybeSerializedBytes;
 use holochain_zome_types::header::AgentValidationPkg;
 use holochain_zome_types::header::AppEntryType;
 use holochain_zome_types::header::CloseChain;
@@ -37,6 +41,7 @@ use holochain_zome_types::header::Delete;
 use holochain_zome_types::header::Dna;
 use holochain_zome_types::header::EntryType;
 use holochain_zome_types::header::Header;
+use holochain_zome_types::header::HeaderHashed;
 use holochain_zome_types::header::InitZomesComplete;
 use holochain_zome_types::header::OpenChain;
 use holochain_zome_types::header::Update;
@@ -46,9 +51,6 @@ use holochain_zome_types::signature::Signature;
 use holochain_zome_types::zome::FunctionName;
 use holochain_zome_types::zome::ZomeName;
 use holochain_zome_types::Entry;
-use holochain_zome_types::{
-    capability::CapAccess, element::Element, element::SignedHeaderHashed, header::HeaderHashed,
-};
 use holochain_zome_types::{capability::CapClaim, header::HeaderType};
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
@@ -57,7 +59,7 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::iter::Iterator;
 
-pub use holochain_zome_types::fixt::{TimestampFixturator as ZomeTimestampFixturator, *};
+// pub use holochain_zome_types::fixt::{TimestampFixturator as ZomeTimestampFixturator, *};
 
 /// a curve to spit out Entry::App values
 pub struct AppEntry;
@@ -92,7 +94,7 @@ fixturator!(
         inner[CAP_SECRET_BYTES / 2..].copy_from_slice(&upper);
         inner.into()
     };
-    curve Predictable [self.0.index as u8; CAP_SECRET_BYTES].into();
+    curve Predictable self:this [this.0.index as u8; CAP_SECRET_BYTES].into();
 );
 
 fixturator!(
@@ -119,42 +121,42 @@ fixturator!(
 
 fixturator!(
     GrantedFunction;
-    curve Empty (
-        ZomeNameFixturator::new_indexed(Empty, self.0.index).next().unwrap(),
-        FunctionNameFixturator::new_indexed(Empty, self.0.index).next().unwrap()
+    curve Empty self:this (
+        ZomeNameFixturator::new_indexed(Empty, this.0.index).next().unwrap(),
+        FunctionNameFixturator::new_indexed(Empty, this.0.index).next().unwrap()
     );
-    curve Unpredictable (
-        ZomeNameFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap(),
-        FunctionNameFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap()
+    curve Unpredictable self:this (
+        ZomeNameFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap(),
+        FunctionNameFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap()
     );
-    curve Predictable (
-        ZomeNameFixturator::new_indexed(Predictable, self.0.index).next().unwrap(),
-        FunctionNameFixturator::new_indexed(Predictable, self.0.index).next().unwrap()
+    curve Predictable self:this (
+        ZomeNameFixturator::new_indexed(Predictable, this.0.index).next().unwrap(),
+        FunctionNameFixturator::new_indexed(Predictable, this.0.index).next().unwrap()
     );
 );
 
 fixturator!(
     CurryPayloads;
     curve Empty CurryPayloads(BTreeMap::new());
-    curve Unpredictable {
+    curve Unpredictable self:this {
         let mut rng = rand::thread_rng();
         let number_of_payloads = rng.gen_range(0, 5);
 
         let mut payloads: BTreeMap<GrantedFunction, SerializedBytes> = BTreeMap::new();
-        let mut granted_function_fixturator = GrantedFunctionFixturator::new_indexed(Unpredictable, self.0.index);
-        let mut sb_fixturator = SerializedBytesFixturator::new_indexed(Unpredictable, self.0.index);
+        let mut granted_function_fixturator = GrantedFunctionFixturator::new_indexed(Unpredictable, this.0.index);
+        let mut sb_fixturator = SerializedBytesFixturator::new_indexed(Unpredictable, this.0.index);
         for _ in 0..number_of_payloads {
             payloads.insert(granted_function_fixturator.next().unwrap(), sb_fixturator.next().unwrap());
         }
         CurryPayloads(payloads)
     };
-    curve Predictable {
+    curve Predictable self:this {
         let mut rng = rand::thread_rng();
         let number_of_payloads = rng.gen_range(0, 5);
 
         let mut payloads: BTreeMap<GrantedFunction, SerializedBytes> = BTreeMap::new();
-        let mut granted_function_fixturator = GrantedFunctionFixturator::new_indexed(Predictable, self.0.index);
-        let mut sb_fixturator = SerializedBytesFixturator::new_indexed(Predictable, self.0.index);
+        let mut granted_function_fixturator = GrantedFunctionFixturator::new_indexed(Predictable, this.0.index);
+        let mut sb_fixturator = SerializedBytesFixturator::new_indexed(Predictable, this.0.index);
         for _ in 0..number_of_payloads {
             payloads.insert(granted_function_fixturator.next().unwrap(), sb_fixturator.next().unwrap());
         }
@@ -164,6 +166,7 @@ fixturator!(
 
 fixturator!(
     ZomeCallCapGrant,
+    self: this,
     {
         ZomeCallCapGrant::new(
             StringFixturator::new(Empty).next().unwrap(),
@@ -203,15 +206,15 @@ fixturator!(
     },
     {
         ZomeCallCapGrant::new(
-            StringFixturator::new_indexed(Predictable, self.0.index)
+            StringFixturator::new_indexed(Predictable, this.0.index)
                 .next()
                 .unwrap(),
-            CapAccessFixturator::new_indexed(Predictable, self.0.index)
+            CapAccessFixturator::new_indexed(Predictable, this.0.index)
                 .next()
                 .unwrap(),
             {
                 let mut granted_functions: GrantedFunctions = HashSet::new();
-                for _ in 0..self.0.index % 3 {
+                for _ in 0..this.0.index % 3 {
                     granted_functions
                         .insert(GrantedFunctionFixturator::new(Predictable).next().unwrap());
                 }
@@ -227,33 +230,33 @@ fixturator!(
 
     enum [ Unrestricted Transferable Assigned ];
 
-    curve Empty {
+    curve Empty self:this {
         match CapAccessVariant::random() {
             CapAccessVariant::Unrestricted => CapAccess::from(()),
-            CapAccessVariant::Transferable => CapAccess::from(CapSecretFixturator::new_indexed(Empty, self.0.index).next().unwrap()),
+            CapAccessVariant::Transferable => CapAccess::from(CapSecretFixturator::new_indexed(Empty, this.0.index).next().unwrap()),
             CapAccessVariant::Assigned => CapAccess::from((
-                CapSecretFixturator::new_indexed(Empty, self.0.index).next().unwrap(),
+                CapSecretFixturator::new_indexed(Empty, this.0.index).next().unwrap(),
                 HashSet::new()
             ))
         }
     };
 
-    curve Unpredictable {
+    curve Unpredictable self:this {
         match CapAccessVariant::random() {
             CapAccessVariant::Unrestricted => CapAccess::from(()),
             CapAccessVariant::Transferable => {
-                CapAccess::from(CapSecretFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap())
+                CapAccess::from(CapSecretFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap())
             },
             CapAccessVariant::Assigned => {
                 let mut rng = rand::thread_rng();
                 let number_of_assigned = rng.gen_range(0, 5);
 
                 CapAccess::from((
-                    CapSecretFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap(),
+                    CapSecretFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap(),
                     {
                         let mut set: HashSet<AgentPubKey> = HashSet::new();
                         for _ in 0..number_of_assigned {
-                            set.insert(AgentPubKeyFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap());
+                            set.insert(AgentPubKeyFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap());
                         }
                         set
                     }
@@ -262,16 +265,16 @@ fixturator!(
         }
     };
 
-    curve Predictable {
-        match CapAccessVariant::nth(self.0.index) {
+    curve Predictable self:this {
+        match CapAccessVariant::nth(this.0.index) {
             CapAccessVariant::Unrestricted => CapAccess::from(()),
-            CapAccessVariant::Transferable => CapAccess::from(CapSecretFixturator::new_indexed(Predictable, self.0.index).next().unwrap()),
+            CapAccessVariant::Transferable => CapAccess::from(CapSecretFixturator::new_indexed(Predictable, this.0.index).next().unwrap()),
             CapAccessVariant::Assigned => CapAccess::from((
-                CapSecretFixturator::new_indexed(Predictable, self.0.index).next().unwrap(),
+                CapSecretFixturator::new_indexed(Predictable, this.0.index).next().unwrap(),
             {
                 let mut set: HashSet<AgentPubKey> = HashSet::new();
-                for _ in 0..self.0.index % 3 {
-                    set.insert(AgentPubKeyFixturator::new_indexed(Predictable, self.0.index).next().unwrap());
+                for _ in 0..this.0.index % 3 {
+                    set.insert(AgentPubKeyFixturator::new_indexed(Predictable, this.0.index).next().unwrap());
                 }
                 set
             }))
@@ -295,23 +298,23 @@ type NewEntryElement = (Entry, HeaderType);
 fixturator!(
     Element;
     vanilla fn element_with_no_entry(Signature, Header);
-    curve NewEntryHeader {
-        let s = SignatureFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap();
-        element_with_no_entry(s, self.0.curve.clone().into())
+    curve NewEntryHeader self:this self:this {
+        let s = SignatureFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap();
+        element_with_no_entry(s, this.0.curve.clone().into())
     };
-    curve Entry {
-        let et = match self.0.curve {
-            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap()),
+    curve Entry self:this {
+        let et = match this.0.curve {
+            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap()),
             Entry::Agent(_) => EntryType::AgentPubKey,
             Entry::CapClaim(_) => EntryType::CapClaim,
             Entry::CapGrant(_) => EntryType::CapGrant,
         };
-        let new = NewEntryHeaderFixturator::new_indexed(et, self.0.index).next().unwrap();
-        let (shh, _) = ElementFixturator::new_indexed(new, self.0.index).next().unwrap().into_inner();
-        Element::new(shh, Some(self.0.curve.clone()))
+        let new = NewEntryHeaderFixturator::new_indexed(et, this.0.index).next().unwrap();
+        let (shh, _) = ElementFixturator::new_indexed(new, this.0.index).next().unwrap().into_inner();
+        Element::new(shh, Some(this.0.curve.clone()))
     };
-    curve NewEntryElement {
-        new_entry_element(self.0.curve.0.clone(), self.0.curve.1.clone(), self.0.index)
+    curve NewEntryElement self:this {
+        new_entry_element(this.0.curve.0.clone(), this.0.curve.1.clone(), this.0.index)
     };
 );
 
@@ -354,9 +357,9 @@ fixturator!(
         CapGrant(ZomeCallCapGrant)
     ];
 
-    curve AppEntry {
+    curve AppEntry self:this {
         Entry::App(
-            AppEntryBytesFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap()
+            AppEntryBytesFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap()
         )
     };
 );
@@ -364,20 +367,20 @@ use std::convert::TryFrom;
 
 fixturator!(
     AppEntryBytes;
-    curve Empty AppEntryBytes::try_from(
-        SerializedBytesFixturator::new_indexed(Empty, self.0.index)
+    curve Empty self:this AppEntryBytes::try_from(
+        SerializedBytesFixturator::new_indexed(Empty, this.0.index)
             .next()
             .unwrap()
         ).unwrap();
 
-    curve Predictable AppEntryBytes::try_from(
-        SerializedBytesFixturator::new_indexed(Predictable, self.0.index)
+    curve Predictable self:this AppEntryBytes::try_from(
+        SerializedBytesFixturator::new_indexed(Predictable, this.0.index)
             .next()
             .unwrap()
         ).unwrap();
 
-    curve Unpredictable AppEntryBytes::try_from(
-        SerializedBytesFixturator::new_indexed(Unpredictable, self.0.index)
+    curve Unpredictable self:this AppEntryBytes::try_from(
+        SerializedBytesFixturator::new_indexed(Unpredictable, this.0.index)
             .next()
             .unwrap()
         ).unwrap();
@@ -444,47 +447,47 @@ fixturator!(
 
 fixturator!(
     DnaDef;
-    curve Empty DnaDef {
-        name: StringFixturator::new_indexed(Empty, self.0.index)
+    curve Empty self:this DnaDef {
+        name: StringFixturator::new_indexed(Empty, this.0.index)
             .next()
             .unwrap(),
-        uuid: StringFixturator::new_indexed(Empty, self.0.index)
+        uuid: StringFixturator::new_indexed(Empty, this.0.index)
             .next()
             .unwrap(),
-        properties: SerializedBytesFixturator::new_indexed(Empty, self.0.index)
+        properties: SerializedBytesFixturator::new_indexed(Empty, this.0.index)
             .next()
             .unwrap(),
-        zomes: ZomesFixturator::new_indexed(Empty, self.0.index)
-            .next()
-            .unwrap(),
-    };
-
-    curve Unpredictable DnaDef {
-        name: StringFixturator::new_indexed(Unpredictable, self.0.index)
-            .next()
-            .unwrap(),
-        uuid: StringFixturator::new_indexed(Unpredictable, self.0.index)
-            .next()
-            .unwrap(),
-        properties: SerializedBytesFixturator::new_indexed(Unpredictable, self.0.index)
-            .next()
-            .unwrap(),
-        zomes: ZomesFixturator::new_indexed(Unpredictable, self.0.index)
+        zomes: ZomesFixturator::new_indexed(Empty, this.0.index)
             .next()
             .unwrap(),
     };
 
-    curve Predictable DnaDef {
-        name: StringFixturator::new_indexed(Predictable, self.0.index)
+    curve Unpredictable self:this DnaDef {
+        name: StringFixturator::new_indexed(Unpredictable, this.0.index)
             .next()
             .unwrap(),
-        uuid: StringFixturator::new_indexed(Predictable, self.0.index)
+        uuid: StringFixturator::new_indexed(Unpredictable, this.0.index)
             .next()
             .unwrap(),
-        properties: SerializedBytesFixturator::new_indexed(Predictable, self.0.index)
+        properties: SerializedBytesFixturator::new_indexed(Unpredictable, this.0.index)
             .next()
             .unwrap(),
-        zomes: ZomesFixturator::new_indexed(Predictable, self.0.index)
+        zomes: ZomesFixturator::new_indexed(Unpredictable, this.0.index)
+            .next()
+            .unwrap(),
+    };
+
+    curve Predictable self:this DnaDef {
+        name: StringFixturator::new_indexed(Predictable, this.0.index)
+            .next()
+            .unwrap(),
+        uuid: StringFixturator::new_indexed(Predictable, this.0.index)
+            .next()
+            .unwrap(),
+        properties: SerializedBytesFixturator::new_indexed(Predictable, this.0.index)
+            .next()
+            .unwrap(),
+        zomes: ZomesFixturator::new_indexed(Predictable, this.0.index)
             .next()
             .unwrap(),
     };
@@ -503,9 +506,9 @@ fixturator! {
         MaybeSerializedBytesVariant::None => MaybeSerializedBytes::None,
         MaybeSerializedBytesVariant::Some => MaybeSerializedBytes::Some(fixt!(SerializedBytes)),
     };
-    curve Predictable match MaybeSerializedBytesVariant::nth(self.0.index) {
+    curve Predictable self:this match MaybeSerializedBytesVariant::nth(this.0.index) {
         MaybeSerializedBytesVariant::None => MaybeSerializedBytes::None,
-        MaybeSerializedBytesVariant::Some => MaybeSerializedBytes::Some(SerializedBytesFixturator::new_indexed(Predictable, self.0.index).next().unwrap()),
+        MaybeSerializedBytesVariant::Some => MaybeSerializedBytes::Some(SerializedBytesFixturator::new_indexed(Predictable, this.0.index).next().unwrap()),
     };
 }
 
@@ -519,9 +522,9 @@ fixturator! {
         EntryTypeVariant::CapClaim => EntryType::CapClaim,
         EntryTypeVariant::CapGrant => EntryType::CapGrant,
     };
-    curve Predictable match EntryTypeVariant::nth(self.0.index) {
+    curve Predictable self:this match EntryTypeVariant::nth(this.0.index) {
         EntryTypeVariant::AgentPubKey => EntryType::AgentPubKey,
-        EntryTypeVariant::App => EntryType::App(AppEntryTypeFixturator::new_indexed(Predictable, self.0.index).next().unwrap()),
+        EntryTypeVariant::App => EntryType::App(AppEntryTypeFixturator::new_indexed(Predictable, this.0.index).next().unwrap()),
         EntryTypeVariant::CapClaim => EntryType::CapClaim,
         EntryTypeVariant::CapGrant => EntryType::CapGrant,
     };
@@ -560,19 +563,19 @@ fixturator!(
         ec.entry_type = fixt!(EntryType, PublicCurve);
         ec
     };
-    curve EntryType {
-        let mut ec = CreateFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap();
-        ec.entry_type = self.0.curve.clone();
+    curve EntryType self:this {
+        let mut ec = CreateFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap();
+        ec.entry_type = this.0.curve.clone();
         ec
     };
-    curve Entry {
-        let et = match self.0.curve {
-            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap()),
+    curve Entry self:this {
+        let et = match this.0.curve {
+            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap()),
             Entry::Agent(_) => EntryType::AgentPubKey,
             Entry::CapClaim(_) => EntryType::CapClaim,
             Entry::CapGrant(_) => EntryType::CapGrant,
         };
-        CreateFixturator::new_indexed(et, self.0.index).next().unwrap()
+        CreateFixturator::new_indexed(et, this.0.index).next().unwrap()
     };
 );
 
@@ -588,28 +591,28 @@ fixturator!(
         eu
     };
 
-    curve EntryType {
-        let mut eu = UpdateFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap();
-        eu.entry_type = self.0.curve.clone();
+    curve EntryType self:this {
+        let mut eu = UpdateFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap();
+        eu.entry_type = this.0.curve.clone();
         eu
     };
 
-    curve EntryTypeEntryHash {
-        let mut u = UpdateFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap();
-        u.entry_type = self.0.curve.0.clone();
-        u.entry_hash = self.0.curve.1.clone();
+    curve EntryTypeEntryHash self:this {
+        let mut u = UpdateFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap();
+        u.entry_type = this.0.curve.0.clone();
+        u.entry_hash = this.0.curve.1.clone();
         u
     };
 
-    curve Entry {
-        let et = match self.0.curve {
-            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, self.0.index).next().unwrap()),
+    curve Entry self:this {
+        let et = match this.0.curve {
+            Entry::App(_) => EntryType::App(AppEntryTypeFixturator::new_indexed(Unpredictable, this.0.index).next().unwrap()),
             Entry::Agent(_) => EntryType::AgentPubKey,
             Entry::CapClaim(_) => EntryType::CapClaim,
             Entry::CapGrant(_) => EntryType::CapGrant,
         };
-        let eh = EntryHash::with_data_sync(&self.0.curve);
-        UpdateFixturator::new_indexed((et, eh), self.0.index).next().unwrap()
+        let eh = EntryHash::with_data_sync(&this.0.curve);
+        UpdateFixturator::new_indexed((et, eh), this.0.index).next().unwrap()
     };
 );
 
@@ -657,14 +660,14 @@ fixturator!(
         }
     };
 
-    curve EntryType {
+    curve EntryType self:this {
         match fixt!(NewEntryHeader) {
             NewEntryHeader::Create(_) => {
-                let ec = CreateFixturator::new_indexed(self.0.curve.clone(), self.0.index).next().unwrap();
+                let ec = CreateFixturator::new_indexed(this.0.curve.clone(), this.0.index).next().unwrap();
                 NewEntryHeader::Create(ec)
             },
             NewEntryHeader::Update(_) => {
-                let eu = UpdateFixturator::new_indexed(self.0.curve.clone(), self.0.index).next().unwrap();
+                let eu = UpdateFixturator::new_indexed(this.0.curve.clone(), this.0.index).next().unwrap();
                 NewEntryHeader::Update(eu)
             },
         }

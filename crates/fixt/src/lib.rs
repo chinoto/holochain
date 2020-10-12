@@ -165,26 +165,26 @@ macro_rules! fixturator {
             $type;
             enum [ $( $variant )* ];
 
-            curve Empty expr! { match [<$type:camel Variant>]::random() {
+            curve Empty self:this expr! { match [<$type:camel Variant>]::random() {
                 $(
                     [<$type:camel Variant>]::$variant => $type::$variant(
-                        [<$variant_inner:camel Fixturator>]::new_indexed(Empty, self.0.index).next().unwrap().into()
+                        [<$variant_inner:camel Fixturator>]::new_indexed(Empty, this.0.index).next().unwrap().into()
                     ),
                 )*
             }};
 
-            curve Unpredictable expr! { match [<$type:camel Variant>]::random() {
+            curve Unpredictable self:this expr! { match [<$type:camel Variant>]::random() {
                 $(
                     [<$type:camel Variant>]::$variant => $type::$variant(
-                        [<$variant_inner:camel Fixturator>]::new_indexed(Unpredictable, self.0.index).next().unwrap().into()
+                        [<$variant_inner:camel Fixturator>]::new_indexed(Unpredictable, this.0.index).next().unwrap().into()
                     ),
                 )*
             }};
 
-            curve Predictable expr! { match [<$type:camel Variant>]::nth(self.0.index) {
+            curve Predictable self:this expr! { match [<$type:camel Variant>]::nth(this.0.index) {
                 $(
                     [<$type:camel Variant>]::$variant => $type::$variant(
-                        [<$variant_inner:camel Fixturator>]::new_indexed(Predictable, self.0.index).next().unwrap().into()
+                        [<$variant_inner:camel Fixturator>]::new_indexed(Predictable, this.0.index).next().unwrap().into()
                     ),
                 )*
             }};
@@ -215,7 +215,7 @@ macro_rules! fixturator {
                         [<$type:camel Variant>]::$variant => $type::$variant,
                 )*
             }};
-            curve Predictable expr! { match [<$type:camel Variant>]::nth(self.0.index) {
+            curve Predictable self:this expr! { match [<$type:camel Variant>]::nth(this.0.index) {
                 $(
                     [<$type:camel Variant>]::$variant => $type::$variant,
                 )*
@@ -272,27 +272,24 @@ macro_rules! fixturator {
         fixturator!(
             $type;
 
-            curve Empty {
+            curve Empty self:this
                 $type::from(
                     expr! {
-                        [< $from:camel Fixturator >]::new_indexed(Empty, self.0.index).next().unwrap()
+                        [< $from:camel Fixturator >]::new_indexed(Empty, this.0.index).next().unwrap()
                     }
-                )
-            };
-            curve Unpredictable {
+                );
+            curve Unpredictable self:this
                 $type::from(
                     expr! {
-                        [< $from:camel Fixturator >]::new_indexed(Unpredictable, self.0.index).next().unwrap()
+                        [< $from:camel Fixturator >]::new_indexed(Unpredictable, this.0.index).next().unwrap()
                     }
-                )
-            };
-            curve Predictable {
+                );
+            curve Predictable self:this
                 $type::from(
                     expr! {
-                        [< $from:camel Fixturator >]::new_indexed(Predictable, self.0.index).next().unwrap()
+                        [< $from:camel Fixturator >]::new_indexed(Predictable, this.0.index).next().unwrap()
                     }
-                )
-            };
+                );
         );
     };
 
@@ -306,34 +303,31 @@ macro_rules! fixturator {
         fixturator!(
             $type;
 
-            curve Empty {
+            curve Empty self:this
                 $type::$fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Empty, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Empty, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
+                );
 
-            curve Unpredictable {
+            curve Unpredictable self:this
                 $type::$fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Unpredictable, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Unpredictable, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
-            curve Predictable {
+                );
+            curve Predictable self:this
                 $type::$fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Predictable, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Predictable, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
+                );
 
             $($munch)*
         );
@@ -349,34 +343,31 @@ macro_rules! fixturator {
         fixturator!(
             $type;
 
-            curve Empty {
+            curve Empty self:this
                 $fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Empty, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Empty, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
+                );
 
-            curve Unpredictable {
+            curve Unpredictable self:this
                 $fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Unpredictable, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Unpredictable, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
-            curve Predictable {
+                );
+            curve Predictable self:this
                 $fn(
                     $(
                         expr! {
-                            [< $newtype:camel Fixturator >]::new_indexed(Predictable, self.0.index).next().unwrap().into()
+                            [< $newtype:camel Fixturator >]::new_indexed(Predictable, this.0.index).next().unwrap().into()
                         }
                     ),*
-                )
-            };
+                );
 
             $($munch)*
         );
@@ -389,6 +380,11 @@ macro_rules! fixturator {
     // uses TT munching for multiple curves
     // used internally by this macro for all baseline curves
     // @see https://danielkeep.github.io/tlborm/book/pat-incremental-tt-munchers.html
+    ( $type:ident; curve $curve:ident self:$this:ident $e:expr; $($munch:tt)* ) => {
+        curve!( $type, $curve, $this $e);
+
+        fixturator!( $type; $($munch)* );
+    };
     ( $type:ident; curve $curve:ident $e:expr; $($munch:tt)* ) => {
         curve!( $type, $curve, $e);
 
@@ -433,6 +429,14 @@ macro_rules! fixturator {
     // - couples all curve definitions together and to FooFixturator creation
     // - undifferentiated logic forces much boilerplate because the macro knows nothing about Foo
     // - forces devs to define curves that might not be needed or make sense yet
+    ( $type:ident, self : $this:ident, $empty:expr, $unpredictable:expr, $predictable:expr ) => {
+        fixturator!(
+            $type;
+            curve Empty self:$this $empty;
+            curve Unpredictable self:$this $unpredictable;
+            curve Predictable self:$this $predictable;
+        );
+    };
     ( $type:ident, $empty:expr, $unpredictable:expr, $predictable:expr ) => {
         fixturator!(
             $type;
@@ -455,16 +459,20 @@ macro_rules! fixturator {
 /// incremented by 1 automatically by the macro
 macro_rules! curve {
     ( $type:ident, $curve:ident, $e:expr ) => {
+        curve!($type, $curve, this $e);
+    };
+    ( $type:ident, $curve:ident, $this:ident $e:expr ) => {
         item! {
             #[allow(missing_docs)]
             impl Iterator for [< $type:camel Fixturator >]<$curve> {
                 type Item = $type;
 
                 fn next(&mut self) -> Option<Self::Item> {
-                    let original_index = self.0.index;
+                    let $this=self;
+                    let original_index = $this.0.index;
                     let ret = $e;
-                    if original_index == self.0.index {
-                        self.0.index += 1;
+                    if original_index == $this.0.index {
+                        $this.0.index += 1;
                     }
                     Some(ret)
                 }
@@ -544,28 +552,28 @@ macro_rules! newtype_fixturator {
         fixturator!(
             $outer,
             $outer(vec![]),
-            {
+            this {
                 let mut rng = thread_rng();
                 let vec_len = rng.gen_range(0, 5);
                 let mut ret = vec![];
                 let mut inner_fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, self.0.index) };
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, this.0.index) };
                 for _ in 0..vec_len {
                     ret.push(inner_fixturator.next().unwrap());
                 }
-                self.0.index += 1;
+                this.0.index += 1;
                 $outer(ret)
             },
-            {
+            this {
                 let mut rng = thread_rng();
                 let vec_len = rng.gen_range(0, 5);
                 let mut ret = vec![];
                 let mut inner_fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, self.0.index) };
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, this.0.index) };
                 for _ in 0..vec_len {
                     ret.push(inner_fixturator.next().unwrap());
                 }
-                self.0.index += 1;
+                this.0.index += 1;
                 $outer(ret)
             }
         );
@@ -573,22 +581,23 @@ macro_rules! newtype_fixturator {
     ( $outer:ident<$inner:ty> ) => {
         fixturator!(
             $outer,
+            self:this,
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Empty, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Empty, this.0.index) };
+                this.0.index += 1;
                 $outer(fixturator.next().unwrap())
             },
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, this.0.index) };
+                this.0.index += 1;
                 $outer(fixturator.next().unwrap())
             },
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, this.0.index) };
+                this.0.index += 1;
                 $outer(fixturator.next().unwrap())
             }
         );
@@ -602,22 +611,23 @@ macro_rules! wasm_io_fixturator {
     ( $outer:ident<$inner:ty> ) => {
         fixturator!(
             $outer,
+            self: this,
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Empty, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Empty, this.0.index) };
+                this.0.index += 1;
                 $outer::new(fixturator.next().unwrap())
             },
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Unpredictable, this.0.index) };
+                this.0.index += 1;
                 $outer::new(fixturator.next().unwrap())
             },
             {
                 let mut fixturator =
-                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, self.0.index) };
-                self.0.index += 1;
+                    expr! { [<$inner:camel Fixturator>]::new_indexed(Predictable, this.0.index) };
+                this.0.index += 1;
                 $outer::new(fixturator.next().unwrap())
             }
         );
@@ -635,14 +645,15 @@ macro_rules! enum_fixturator {
         use $crate::prelude::strum::IntoEnumIterator;
         fixturator!(
             $enum,
+            self: this,
             $empty,
             {
                 let mut rng = rand::thread_rng();
                 $enum::iter().choose(&mut rng).unwrap()
             },
             {
-                let ret = $enum::iter().cycle().nth(self.0.index).unwrap();
-                self.0.index += 1;
+                let ret = $enum::iter().cycle().nth(this.0.index).unwrap();
+                this.0.index += 1;
                 ret
             }
         );
@@ -651,7 +662,6 @@ macro_rules! enum_fixturator {
 
 #[cfg(test)]
 mod tests {
-
     use crate::prelude::*;
     use crate::string::PREDICTABLE_STRS;
 
@@ -670,9 +680,9 @@ mod tests {
             FooVariant::A => Foo::A,
             FooVariant::B => Foo::B(fixt!(String)),
         };
-        curve Predictable match FooVariant::nth(self.0.index) {
+        curve Predictable self:this match FooVariant::nth(this.0.index) {
             FooVariant::A => Foo::A,
-            FooVariant::B => Foo::B(StringFixturator::new_indexed(Predictable, self.0.index).next().unwrap()),
+            FooVariant::B => Foo::B(StringFixturator::new_indexed(Predictable, this.0.index).next().unwrap()),
         };
     );
 

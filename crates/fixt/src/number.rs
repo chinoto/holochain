@@ -5,6 +5,7 @@ macro_rules! fixturator_unsigned {
     ( $t:ident ) => {
         fixturator!(
             $t,
+            self: this,
             0,
             {
                 if rand::random() {
@@ -17,8 +18,8 @@ macro_rules! fixturator_unsigned {
                 }
             },
             {
-                let ret = self.0.index as $t;
-                self.0.index = ret.wrapping_add(1) as usize;
+                let ret = this.0.index as $t;
+                this.0.index = ret.wrapping_add(1) as usize;
                 ret
             }
         );
@@ -73,6 +74,7 @@ macro_rules! fixturator_signed {
     ( $t:ident ) => {
         fixturator!(
             $t,
+            self: this,
             0,
             {
                 if rand::random() {
@@ -85,8 +87,8 @@ macro_rules! fixturator_signed {
                 }
             },
             {
-                let ret = self.0.index as $t;
-                self.0.index = ret.wrapping_add(1) as usize;
+                let ret = this.0.index as $t;
+                this.0.index = ret.wrapping_add(1) as usize;
                 // negate odds
                 let ret = if ret % 2 == 0 { ret } else { -ret };
                 ret
@@ -161,6 +163,7 @@ macro_rules! fixturator_float {
     ( $t:ident ) => {
         fixturator!(
             $t,
+            self: this,
             0.0,
             {
                 if rand::random() {
@@ -180,14 +183,14 @@ macro_rules! fixturator_float {
                 }
             },
             {
-                let ret = self.0.index as $t;
+                let ret = this.0.index as $t;
 
-                let signed_ret = if self.0.index % 2 == 0 {
+                let signed_ret = if this.0.index % 2 == 0 {
                     ret
                 } else {
                     -ret - 0.5
                 };
-                self.0.index += 1;
+                this.0.index += 1;
                 signed_ret
             }
         );
@@ -204,11 +207,7 @@ basic_test!(
         .into_iter()
         .map(|u| {
             let f = u as f32;
-            if u % 2 == 0 {
-                f
-            } else {
-                -f - 0.5
-            }
+            if u % 2 == 0 { f } else { -f - 0.5 }
         })
         .take(1000)
         .collect::<Vec<f32>>()
@@ -220,11 +219,7 @@ basic_test!(
         .into_iter()
         .map(|u| {
             let f = u as f64;
-            if u % 2 == 0 {
-                f
-            } else {
-                -f - 0.5
-            }
+            if u % 2 == 0 { f } else { -f - 0.5 }
         })
         .take(1000)
         .collect::<Vec<f64>>()

@@ -4,12 +4,12 @@ use rand::Rng;
 pub const EMPTY_CHAR: char = '\u{0000}';
 pub const PREDICTABLE_CHARS: &str = "💯❤💩.!foobarbaz!.💩❤💯";
 
-fixturator!(char, EMPTY_CHAR, rand::random(), {
+fixturator!(char, self: this, EMPTY_CHAR, rand::random(), {
     let ret = PREDICTABLE_CHARS
         .chars()
-        .nth(self.0.index % PREDICTABLE_CHARS.chars().count())
+        .nth(this.0.index % PREDICTABLE_CHARS.chars().count())
         .unwrap();
-    self.0.index += 1;
+    this.0.index += 1;
     ret
 });
 
@@ -32,6 +32,7 @@ pub const UNPREDICTABLE_MAX_LEN: usize = 64;
 
 fixturator!(
     String,
+    self: this,
     String::from(EMPTY_STR),
     {
         let mut rng = rand::thread_rng();
@@ -44,10 +45,10 @@ fixturator!(
         let ret = PREDICTABLE_STRS
             .iter()
             .cycle()
-            .nth(self.0.index)
+            .nth(this.0.index)
             .unwrap()
             .to_string();
-        self.0.index += 1;
+        this.0.index += 1;
         ret
     }
 );

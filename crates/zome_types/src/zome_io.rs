@@ -1,6 +1,9 @@
 use holochain_serialized_bytes::prelude::*;
 
-use crate::element::ElementVec;
+use crate::{
+    agent_info, bytes::Bytes, call_remote::CallRemote, debug::DebugMsg, element::ElementVec,
+    entry::Entry, link, query::ChainQueryFilter, signature, zome_info, SerializedBytes,
+};
 
 /// All wasm shared I/O types need to share the same basic behaviours to cross the host/guest
 /// boundary in a predictable way.
@@ -32,9 +35,9 @@ wasm_io_types!(
     // All the information is provided by core so there is no input value.
     // These are constant for the lifetime of a zome call.
     pub struct ZomeInfoInput(());
-    pub struct ZomeInfoOutput(crate::zome_info::ZomeInfo);
+    pub struct ZomeInfoOutput(zome_info::ZomeInfo);
     pub struct AgentInfoInput(());
-    pub struct AgentInfoOutput(crate::agent_info::AgentInfo);
+    pub struct AgentInfoOutput(agent_info::AgentInfo);
     // @todo Call is arbitrary so we need to send and receive SerializedBytes.
     pub struct CallInput(SerializedBytes);
     pub struct CallOutput(SerializedBytes);
@@ -66,25 +69,25 @@ wasm_io_types!(
     pub struct PropertyInput(());
     pub struct PropertyOutput(());
     // Query the source chain for data.
-    pub struct QueryInput(crate::query::ChainQueryFilter);
+    pub struct QueryInput(ChainQueryFilter);
     pub struct QueryOutput(ElementVec);
     // the length of random bytes to create
     pub struct RandomBytesInput(u32);
-    pub struct RandomBytesOutput(crate::bytes::Bytes);
+    pub struct RandomBytesOutput(Bytes);
     // Header hash of the CreateLink element.
     pub struct DeleteLinkInput(holo_hash::HeaderHash);
     // Header hash of the DeleteLink element.
     pub struct DeleteLinkOutput(holo_hash::HeaderHash);
-    pub struct CallRemoteInput(crate::call_remote::CallRemote);
+    pub struct CallRemoteInput(CallRemote);
     pub struct CallRemoteOutput(ZomeCallResponse);
     // @todo
     pub struct SendInput(());
     pub struct SendOutput(());
     // Attempt to have the keystore sign some data
     // The pubkey in the input needs to be found in the keystore for this to work
-    pub struct SignInput(crate::signature::SignInput);
-    pub struct SignOutput(crate::signature::Signature);
-    pub struct VerifySignatureInput(crate::signature::VerifySignatureInput);
+    pub struct SignInput(signature::SignInput);
+    pub struct SignOutput(signature::Signature);
+    pub struct VerifySignatureInput(signature::VerifySignatureInput);
     pub struct VerifySignatureOutput(bool);
     // @todo
     pub struct ScheduleInput(core::time::Duration);
@@ -115,10 +118,10 @@ wasm_io_types!(
     );
     pub struct CreateLinkOutput(holo_hash::HeaderHash);
     // Get links by entry hash from the cascade.
-    pub struct GetLinksInput((holo_hash::EntryHash, Option<crate::link::LinkTag>));
-    pub struct GetLinksOutput(crate::link::Links);
-    pub struct GetLinkDetailsInput((holo_hash::EntryHash, Option<crate::link::LinkTag>));
-    pub struct GetLinkDetailsOutput(crate::link::LinkDetails);
+    pub struct GetLinksInput((holo_hash::EntryHash, Option<link::LinkTag>));
+    pub struct GetLinksOutput(link::Links);
+    pub struct GetLinkDetailsInput((holo_hash::EntryHash, Option<link::LinkTag>));
+    pub struct GetLinkDetailsOutput(link::LinkDetails);
     // Attempt to get a live entry from the cascade.
     pub struct GetInput((holo_hash::AnyDhtHash, crate::entry::GetOptions));
     pub struct GetOutput(Option<crate::element::Element>);
@@ -128,14 +131,14 @@ wasm_io_types!(
     pub struct EntryTypePropertiesInput(());
     pub struct EntryTypePropertiesOutput(());
     // Hash an entry on the host.
-    pub struct HashEntryInput(crate::entry::Entry);
+    pub struct HashEntryInput(Entry);
     pub struct HashEntryOutput(holo_hash::EntryHash);
     // Current system time, in the opinion of the host, as a `Duration`.
     pub struct SysTimeInput(());
     pub struct SysTimeOutput(core::time::Duration);
     // The debug host import takes a DebugMsg to output wherever the host wants to display it.
     // DebugMsg includes line numbers. so the wasm tells the host about it's own code structure.
-    pub struct DebugInput(crate::debug::DebugMsg);
+    pub struct DebugInput(DebugMsg);
     pub struct DebugOutput(());
     // There's nothing to go in or out of a noop.
     // Used to "defuse" host functions when side effects are not allowed.
@@ -153,8 +156,8 @@ wasm_io_types!(
     // - first the sparse callback is triggered with SB input/output
     // - then the guest inflates the expected input or the host the expected output based on the
     //   callback flavour
-    pub struct ExternInput(crate::SerializedBytes);
-    pub struct ExternOutput(crate::SerializedBytes);
+    pub struct ExternInput(SerializedBytes);
+    pub struct ExternOutput(SerializedBytes);
 );
 
 /// Response to a zome call.

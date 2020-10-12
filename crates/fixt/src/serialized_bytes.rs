@@ -32,6 +32,7 @@ struct StringWrap(String);
 
 fixturator!(
     SerializedBytes,
+    self: this,
     { SerializedBytes::try_from(()).unwrap() },
     {
         // randomly select a thing to serialize
@@ -67,32 +68,32 @@ fixturator!(
             .to_vec()
             .into_iter()
             .cycle()
-            .nth(self.0.index)
+            .nth(this.0.index)
             .unwrap();
 
         // serialize a thing based on a delegated fixturator
         let ret: SerializedBytes = match thing_to_serialize {
-            ThingsToSerialize::Unit => UnitFixturator::new_indexed(Predictable, self.0.index)
+            ThingsToSerialize::Unit => UnitFixturator::new_indexed(Predictable, this.0.index)
                 .next()
                 .unwrap()
                 .try_into()
                 .unwrap(),
             ThingsToSerialize::Bool => BoolWrap(
-                BoolFixturator::new_indexed(Predictable, self.0.index)
+                BoolFixturator::new_indexed(Predictable, this.0.index)
                     .next()
                     .unwrap(),
             )
             .try_into()
             .unwrap(),
             ThingsToSerialize::Number => U32Wrap(
-                U32Fixturator::new_indexed(Predictable, self.0.index)
+                U32Fixturator::new_indexed(Predictable, this.0.index)
                     .next()
                     .unwrap(),
             )
             .try_into()
             .unwrap(),
             ThingsToSerialize::String => StringWrap(
-                StringFixturator::new_indexed(Predictable, self.0.index)
+                StringFixturator::new_indexed(Predictable, this.0.index)
                     .next()
                     .unwrap(),
             )
@@ -100,7 +101,7 @@ fixturator!(
             .unwrap(),
         };
 
-        self.0.index += 1;
+        this.0.index += 1;
         ret
     }
 );

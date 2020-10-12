@@ -12,6 +12,7 @@ pub type BytesNotEmpty = Vec<u8>;
 // of random length between 0 and 32 bytes long
 fixturator!(
     Bytes,
+    self: this,
     vec![],
     {
         let mut rng = rand::thread_rng();
@@ -24,12 +25,12 @@ fixturator!(
         bytes
     },
     {
-        let mut u8_fixturator = U8Fixturator::new_indexed(Predictable, self.0.index);
+        let mut u8_fixturator = U8Fixturator::new_indexed(Predictable, this.0.index);
         let mut bytes = vec![];
         for _ in 0..32 {
             bytes.push(u8_fixturator.next().unwrap());
         }
-        self.0.index += 1;
+        this.0.index += 1;
         bytes
     }
 );
@@ -40,6 +41,7 @@ fixturator!(
 // This version of Bytes is never empty.
 fixturator!(
     BytesNotEmpty,
+    self: this,
     vec![0u8],
     {
         let mut rng = rand::thread_rng();
@@ -52,12 +54,12 @@ fixturator!(
         bytes
     },
     {
-        let mut u8_fixturator = U8Fixturator::new_indexed(Predictable, self.0.index);
+        let mut u8_fixturator = U8Fixturator::new_indexed(Predictable, this.0.index);
         let mut bytes = vec![];
         for _ in 0..32 {
             bytes.push(u8_fixturator.next().unwrap());
         }
-        self.0.index += 1;
+        this.0.index += 1;
         bytes
     }
 );

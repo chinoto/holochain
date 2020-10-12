@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-fixturator!(bool, false, rand::random(), {
-    self.0.index += 1;
-    self.0.index % 2 != 0
+fixturator!(bool, self: this, false, rand::random(), {
+    this.0.index += 1;
+    this.0.index % 2 != 0
 });
 
 basic_test!(
